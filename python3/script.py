@@ -17,10 +17,7 @@ import base64
 from threading import Thread
 
 def url_can_be_converted_to_data(tag):
-  return (
-    tag.name.lower() == "img" and tag.has_attr('src') and not re.match('^data:', tag['src'])
-
-  )
+  return tag.name.lower() == "img" and tag.has_attr('src') and not re.match('^data:', tag['src'])
 
 def background_img_can_be_converted_to_data(tag):
   return re.search(r'url\((?!["\']?data:)', tag.get('style', ''))
@@ -55,6 +52,9 @@ if __name__ == "__main__":
   parser.add_option("-o", "--output", action="store", dest="output",
     default="output.html",
     help="output file name, defaults to output.html")
+  parser.add_option("-t", "--turn-to-data-urls", action="store", dest="turn_to_data_urls",
+    default="YES",
+    help="turns urls to data urls")
   (options, args) = parser.parse_args()
 
   logging.basicConfig(level=logging.DEBUG if options.debug else
@@ -68,25 +68,26 @@ if __name__ == "__main__":
     soup = BeautifulSoup(page, 'html.parser')
 
     threads = []
-    for link in soup.findAll(url_can_be_converted_to_data):
-      image_url = urljoin(page_url, link['src'])
-      logging.info("loading image " + image_url)
-      thread = Thread(target=fetch_image, args=(image_url, link))
-      threads.append(thread)
-      thread.start()
-
-    for tag in soup.findAll(background_img_can_be_converted_to_data):
-      style = tag['style']
-      url_match = re.search(r'url\(["\']?(.*?)["\']?\)', style)
-      if url_match:
-        background_image_url = urljoin(page_url, url_match.group(1))
-        logging.info("loading background image " + background_image_url)
-        thread = Thread(target=fetch_background_image, args=(background_image_url, tag))
+    if options.turn_to_data_urls.upper() == 'YES':
+      for link in soup.findAll(url_can_be_converted_to_data):
+        image_url = urljoin(page_url, link['src'])
+        logging.info("loading image " + image_url)
+        thread = Thread(target=fetch_image, args=(image_url, link))
         threads.append(thread)
         thread.start()
 
-    for thread in threads:
-      thread.join()
+      for tag in soup.findAll(background_img_can_be_converted_to_data):
+        style = tag['style']
+        url_match = re.search(r'url\(["\']?(.*?)["\']?\)', style)
+        if url_match:
+          background_image_url = urljoin(page_url, url_match.group(1))
+          logging.info("loading background image " + background_image_url)
+          thread = Thread(target=fetch_background_image, args=(background_image_url, tag))
+          threads.append(thread)
+          thread.start()
+
+      for thread in threads:
+        thread.join()
 
     html = soup.prettify(formatter="html")
     output_filename = options.output
