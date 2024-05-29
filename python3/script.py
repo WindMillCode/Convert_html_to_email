@@ -17,13 +17,26 @@ import base64
 from threading import Thread
 
 def url_can_be_converted_to_data(tag):
-  return tag.name.lower() == "img" and tag.has_attr('src') and not re.match('^data:', tag['src'])
+  return (
+    tag.name.lower() == "img" and tag.has_attr('src') and not re.match('^data:', tag['src'])
+
+  )
+
+def background_img_can_be_converted_to_data(tag):
+  return re.search(r'url\((?!["\']?data:)', tag.get('style', ''))
 
 def fetch_image(url, link):
   image = urllib2.urlopen(url).read()
   encoded = base64.b64encode(image).decode('utf-8')
   logging.debug("base64 encoded image " + encoded)
   link['src'] = "data:image/png;base64," + encoded
+
+def fetch_background_image(url, tag):
+  image = urllib2.urlopen(url).read()
+  encoded = base64.b64encode(image).decode('utf-8')
+  logging.debug("base64 encoded background image " + encoded)
+  new_style = re.sub(r'url\([\'"]?(.*?)[\'"]?\)', 'url("data:image/png;base64,' + encoded + '")', tag['style'])
+  tag['style'] = new_style
 
 def replace_braces(content):
   content = re.sub(r'{', '{{', content)
@@ -61,6 +74,16 @@ if __name__ == "__main__":
       thread = Thread(target=fetch_image, args=(image_url, link))
       threads.append(thread)
       thread.start()
+
+    for tag in soup.findAll(background_img_can_be_converted_to_data):
+      style = tag['style']
+      url_match = re.search(r'url\(["\']?(.*?)["\']?\)', style)
+      if url_match:
+        background_image_url = urljoin(page_url, url_match.group(1))
+        logging.info("loading background image " + background_image_url)
+        thread = Thread(target=fetch_background_image, args=(background_image_url, tag))
+        threads.append(thread)
+        thread.start()
 
     for thread in threads:
       thread.join()
