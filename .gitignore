@@ -1,3 +1,4 @@
+output.html
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -165,3 +166,8 @@ site-packages
 __pycache__/
 .pytest_cache/
 
+.windmillcode/go_scripts/*/diode.exe*
+.windmillcode/go_scripts/*/diode*
+.windmillcode/go_scripts/*/main.exe*
+.windmillcode/go_scripts/*/main*
+!.windmillcode/go_scripts/*/main.go
